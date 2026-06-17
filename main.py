@@ -72,6 +72,7 @@ class AudioPlayback:
         while True:
             response = self.redis_provider.xread({self.stream_name: last_id}, count=5, block=2_000)
             for _, messages in response:
+                print("received a message here!")
                 for message_id, payload in messages:
                     last_id = message_id
                     speaker_bytes = payload[b"audio_data"]
