@@ -70,7 +70,7 @@ class AudioPlayback:
     def run(self):
         last_id = "$"
         while True:
-            response = self.redis_provider.xread({self.stream_name: last_id}, count=5, block=0)
+            response = self.redis_provider.xread({self.stream_name: last_id}, count=5, block=2_000)
             for _, messages in response:
                 for message_id, payload in messages:
                     last_id = message_id
