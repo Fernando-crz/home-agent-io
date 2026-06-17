@@ -4,6 +4,7 @@ import numpy as np
 import redis
 
 REDIS_HOST = os.environ.get("REDIS_HOST", "127.0.0.1")
+REDIS_PASSWORD = os.environ.get("REDIS_PASSWORD")
 REDIS_PORT = int(os.environ.get("REDIS_PORT", 6379))
 PLAYBACK_STREAM_NAME = os.environ.get("PLAYBACK_STREAM_NAME", "playback")
 
@@ -21,7 +22,7 @@ def generate_sine_wave_chunk(start_sample):
     return audio_ints.tobytes()
 
 def main():
-    r = redis.Redis(host=REDIS_HOST, port=REDIS_PORT)
+    r = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, password=REDIS_PASSWORD)
     print(f"[Tester] Pushing continuous 440Hz beep into stream '{PLAYBACK_STREAM_NAME}'...")
     print("Press Ctrl+C to stop the tone.")
     

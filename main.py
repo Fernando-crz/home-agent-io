@@ -6,6 +6,7 @@ from time import sleep
 import sys
 
 REDIS_HOST = os.environ.get("REDIS_HOST", "127.0.0.1")
+REDIS_PASSWORD = os.environ.get("REDIS_PASSWORD")
 REDIS_PORT = int(os.environ.get("REDIS_PORT", 6379))
 # TODO change these stream/variable names to things more clear
 LIVE_AUDIO_STREAM_NAME = os.environ.get("LIVE_AUDIO_STREAM_NAME", "live_audio_broadcast")
@@ -86,7 +87,7 @@ class AudioPlayback:
 
 
 def main():
-    redis_provider = redis.Redis(REDIS_HOST, REDIS_PORT)
+    redis_provider = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, password=REDIS_PASSWORD)
     pyaudio_instance = pyaudio.PyAudio()
     live_audio_broadcaster = LiveAudioBroadcaster(redis_provider, LIVE_AUDIO_STREAM_NAME, pyaudio_instance)
     audio_playback = AudioPlayback(redis_provider, PLAYBACK_STREAM_NAME, pyaudio_instance)

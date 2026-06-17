@@ -3,11 +3,12 @@ import numpy as np
 import redis
 
 REDIS_HOST = os.environ.get("REDIS_HOST", "127.0.0.1")
+REDIS_PASSWORD = os.environ.get("REDIS_PASSWORD")
 REDIS_PORT = int(os.environ.get("REDIS_PORT", 6379))
 LIVE_AUDIO_STREAM_NAME = os.environ.get("LIVE_AUDIO_STREAM_NAME", "live_audio_broadcast")
 
 def main():
-    r = redis.Redis(host=REDIS_HOST, port=REDIS_PORT)
+    r = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, password=REDIS_PASSWORD)
     last_id = "$"  # Listen only for new chunks sent after this script starts
     
     print(f"[Tester] Connecting to Redis at {REDIS_HOST}:{REDIS_PORT}...")
