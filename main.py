@@ -4,6 +4,8 @@ import os
 import threading
 from time import sleep
 import sys
+import soxr
+import numpy as np
 
 REDIS_HOST = os.environ.get("REDIS_HOST", "127.0.0.1")
 REDIS_PASSWORD = os.environ.get("REDIS_PASSWORD")
@@ -72,12 +74,26 @@ class AudioPlayback:
         while True:
             response = self.redis_provider.xread({self.stream_name: last_id}, count=5, block=2_000)
             for _, messages in response:
-                print("received a message here!")
                 for message_id, payload in messages:
                     last_id = message_id
                     speaker_bytes = payload[b"audio_data"]
 
-                    self.stream.write(speaker_bytes)
+                    incoming_rate = int(payload.get(b"sample_rate", PLAYBACK_RATE))
+
+                    if incoming_rate == PLAYBACK_RATE:
+                        self.stream.write(speaker_bytes)
+                        continue
+
+                    audio_array = np.frombuffer(speaker_bytes, dtype=np.int16)
+                    resampled_array = soxr.resample(
+                        audio_array, 
+                        incoming_rate, 
+                        PLAYBACK_RATE, 
+                        quality='QQ'
+                    )
+
+                    output_bytes = resampled_array.astype(np.int16).tobytes()
+                    self.stream.write(output_bytes)
     
     def close(self):
         try:
