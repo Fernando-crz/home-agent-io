@@ -1,26 +1,12 @@
 import redis
 import pyaudio
-import os
 import threading
 from time import sleep
 import sys
 import soxr
 import numpy as np
 
-REDIS_HOST = os.environ.get("REDIS_HOST", "127.0.0.1")
-REDIS_PASSWORD = os.environ.get("REDIS_PASSWORD")
-REDIS_PORT = int(os.environ.get("REDIS_PORT", 6379))
-# TODO change these stream/variable names to things more clear
-LIVE_AUDIO_STREAM_NAME = os.environ.get("LIVE_AUDIO_STREAM_NAME", "live_audio_broadcast")
-PLAYBACK_STREAM_NAME = os.environ.get("PLAYBACK_STREAM_NAME", "playback")
-
-MICROPHONE_CAPTURE_RATE = 16_000
-MICROPHONE_CHUNK_SIZE = 1_280 
-
-PLAYBACK_RATE = 16_000
-PLAYBACK_CHUNK_SIZE = 1_280
-
-MAX_STREAM_LEN = 2_000
+from src.config import settings 
 
 class LiveAudioBroadcaster:
     def __init__(self, redis_provider, stream_name, pyaudio_instance):
@@ -29,9 +15,9 @@ class LiveAudioBroadcaster:
         self.stream = pyaudio_instance.open(
             format=pyaudio.paInt16,
             channels=1,
-            rate=MICROPHONE_CAPTURE_RATE,
+            rate=settings.MICROPHONE.CAPTURE_RATE,
             input=True,
-            frames_per_buffer=MICROPHONE_CHUNK_SIZE
+            frames_per_buffer=settings.MICROPHONE.CHUNK_SIZE
         ) 
 
     def broadcast_chunk(self, chunk_bytes):
@@ -41,13 +27,13 @@ class LiveAudioBroadcaster:
         self.redis_provider.xadd(
             self.stream_name,
             payload,
-            maxlen=MAX_STREAM_LEN,
+            maxlen=settings.REDIS.MAX_STREAM_LEN,
             approximate=True
         )
     
     def run(self):
         while True:
-            chunk = self.stream.read(MICROPHONE_CHUNK_SIZE, exception_on_overflow=False)
+            chunk = self.stream.read(settings.MICROPHONE.CHUNK_SIZE, exception_on_overflow=False)
             self.broadcast_chunk(chunk)
     
     def close(self):
@@ -64,9 +50,9 @@ class AudioPlayback:
         self.stream = pyaudio_instance.open(
             format=pyaudio.paInt16, 
             channels=1, 
-            rate=PLAYBACK_RATE,
+            rate=settings.SPEAKER.RATE,
             output=True,
-            frames_per_buffer=PLAYBACK_CHUNK_SIZE
+            frames_per_buffer=settings.SPEAKER.CHUNK_SIZE
         )
 
     def run(self):
@@ -78,9 +64,9 @@ class AudioPlayback:
                     last_id = message_id
                     speaker_bytes = payload[b"audio_data"]
 
-                    incoming_rate = int(payload.get(b"sample_rate", PLAYBACK_RATE))
+                    incoming_rate = int(payload.get(b"sample_rate", settings.SPEAKER.RATE))
 
-                    if incoming_rate == PLAYBACK_RATE:
+                    if incoming_rate == settings.SPEAKER.RATE:
                         self.stream.write(speaker_bytes)
                         continue
 
@@ -88,7 +74,7 @@ class AudioPlayback:
                     resampled_array = soxr.resample(
                         audio_array, 
                         incoming_rate, 
-                        PLAYBACK_RATE, 
+                        settings.SPEAKER.RATE, 
                         quality='QQ'
                     )
 
@@ -104,10 +90,13 @@ class AudioPlayback:
 
 
 def main():
-    redis_provider = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, password=REDIS_PASSWORD)
+    redis_password = (
+        settings.REDIS.PASSWORD.get_secret_value() if settings.REDIS.PASSWORD else None
+    )
+    redis_provider = redis.Redis(host=settings.REDIS.HOST, port=settings.REDIS.PORT, password=redis_password)
     pyaudio_instance = pyaudio.PyAudio()
-    live_audio_broadcaster = LiveAudioBroadcaster(redis_provider, LIVE_AUDIO_STREAM_NAME, pyaudio_instance)
-    audio_playback = AudioPlayback(redis_provider, PLAYBACK_STREAM_NAME, pyaudio_instance)
+    live_audio_broadcaster = LiveAudioBroadcaster(redis_provider, settings.STREAM_NAME.LIVE_AUDIO, pyaudio_instance)
+    audio_playback = AudioPlayback(redis_provider, settings.STREAM_NAME.PLAYBACK, pyaudio_instance)
 
     broadcaster_thread = threading.Thread(target=live_audio_broadcaster.run, name="MicThread", daemon=True)
     playback_thread = threading.Thread(target=audio_playback.run, name="SpeakerThread", daemon=True)

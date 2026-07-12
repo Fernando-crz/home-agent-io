@@ -7,6 +7,7 @@ requires-python = ">=3.13"
 dependencies = [
     "numpy>=2.4.6",
     "pyaudio>=0.2.14",
+    "pydantic-settings>=2.14.2",
     "redis>=8.0.0",
     "ruff>=0.15.17",
     "soxr>=1.1.0",
