@@ -156,6 +156,12 @@ class AudioMixer:
             if channel.paused:
                 continue
 
+            if not channel.active_playback:
+                if channel.queue.qsize() < settings.AUDIO_MIXER.PRE_BUFFER_COUNT:
+                    continue 
+                else:
+                    channel.active_playback = True
+
             try:
                 chunk_array = channel.queue.get_nowait() # falls into exception if queue empty.
 

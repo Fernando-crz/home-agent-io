@@ -27,7 +27,8 @@ class AudioMixerSettings(BaseModel):
     MUSIC_DEFAULT_VOLUME: VolumeSetting = 1.0
     AGENT_DEFAULT_VOLUME: VolumeSetting = 1.0
     NOTIFICATION_DEFAULT_VOLUME: VolumeSetting = 1.0
-
+    EVENT_NOTIFIER_STREAM_NAME: str = "audio_mixer_event"
+    PRE_BUFFER_COUNT: PositiveInt = 4
 
 class Settings(BaseSettings):
     REDIS: RedisSettings = Field(default_factory=RedisSettings)
