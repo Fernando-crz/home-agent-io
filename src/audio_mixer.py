@@ -3,9 +3,9 @@ import pyaudio
 import numpy as np
 from typing import Dict, Optional, Tuple, Any, TypedDict, Literal, cast
 from redis.asyncio import Redis
-import sys
 import asyncio
 import logging
+from dataclasses import dataclass
 
 from src.audio_utils import apply_volume, clip_buffer_16_bits
 from src.config import settings
@@ -48,18 +48,38 @@ class AudioMixerEventNotifier:
         self._notify({"event": "finished", "channel": channel_name})
     
 
-class ChannelConfig(TypedDict):
+@dataclass
+class ChannelConfig:
+    name: Literal["music", "agent", "notification"]
     queue: queue.Queue
     volume: float
     paused: bool
     active_playback: bool
 
-class AudioMixerChannelsConfig(TypedDict):
+@dataclass
+class AudioMixerChannelsConfig:
     music: ChannelConfig
     agent: ChannelConfig
     notification: ChannelConfig
 
-class AudioMixerMasterConfig(TypedDict):
+
+    def __contains__(self, channel_name: str) -> bool:
+        return channel_name in ["music", "agent", "notification"]
+    
+    def __iter__(self):
+        for channel in [self.music, self.agent, self.notification]:
+            yield channel
+
+    def get_channel(self, channel_name: str) -> Optional[ChannelConfig]:
+        if channel_name not in self:
+            return None
+
+        if channel_name == "music": return self.music
+        if channel_name == "agent": return self.agent
+        if channel_name == "notification": return self.notification
+
+@dataclass
+class AudioMixerMasterConfig:
     volume: float
     paused: bool
 
@@ -73,32 +93,39 @@ class AudioMixer:
         self._setup_pyaudio()
 
     def _get_default_channels_config(self) -> AudioMixerChannelsConfig:
-        return {
-            "music": {
-                "queue": queue.Queue(),
-                "volume": settings.AUDIO_MIXER.MUSIC_DEFAULT_VOLUME,
-                "paused": False,
-                "active_playback": False,
-            },
-            "agent": {
-                "queue": queue.Queue(),
-                "volume": settings.AUDIO_MIXER.AGENT_DEFAULT_VOLUME,
-                "paused": False,
-                "active_playback": False,
-            },
-            "notification": {
-                "queue": queue.Queue(),
-                "volume": settings.AUDIO_MIXER.NOTIFICATION_DEFAULT_VOLUME,
-                "paused": False,
-                "active_playback": False,
-            },
-        }
+        music = ChannelConfig(
+            name="music",
+            queue=queue.Queue(),
+            volume=settings.AUDIO_MIXER.MUSIC_DEFAULT_VOLUME,
+            paused=False,
+            active_playback=False,
+        )
+        agent = ChannelConfig(
+            name="agent",
+            queue=queue.Queue(),
+            volume=settings.AUDIO_MIXER.AGENT_DEFAULT_VOLUME,
+            paused=False,
+            active_playback=False,
+        )
+        notification = ChannelConfig(
+            name="notification",
+            queue=queue.Queue(),
+            volume=settings.AUDIO_MIXER.NOTIFICATION_DEFAULT_VOLUME,
+            paused=False,
+            active_playback=False,
+        )
+        
+        return AudioMixerChannelsConfig(
+            music=music,
+            agent=agent,
+            notification=notification
+        )
 
     def _get_default_master_config(self) -> AudioMixerMasterConfig:
-        return {
-            "volume": settings.AUDIO_MIXER.MASTER_DEFAULT_VOLUME,
-            "paused": False
-        }
+        return AudioMixerMasterConfig(
+            volume=settings.AUDIO_MIXER.MASTER_DEFAULT_VOLUME,
+            paused=False,
+        )
 
     def _setup_pyaudio(self):
         self.p = pyaudio.PyAudio()
@@ -120,56 +147,56 @@ class AudioMixer:
         ) -> Tuple[Optional[bytes], int]:
         mixed_buffer = np.zeros(frame_count, dtype=np.int32)
 
-        if self.master["paused"]:
+        if self.master.paused:
             # no sound is played or queue updated, just return empty array
             return (mixed_buffer.astype(np.int16).tobytes(), pyaudio.paContinue)
 
-        for name, ch in self.channels.items():
-            ch = cast(ChannelConfig, ch)
+        for channel in self.channels:
             
-            if ch["paused"]:
+            if channel.paused:
                 continue
 
             try:
-                chunk_array = ch["queue"].get_nowait() # falls into exception if queue empty.
+                chunk_array = channel.queue.get_nowait() # falls into exception if queue empty.
 
-                if not ch["active_playback"]:
-                    ch["active_playback"] = True
-                    self.event_notifier.notify_audio_started(name)
+                if not channel.active_playback:
+                    channel.active_playback = True
+                    self.event_notifier.notify_audio_started(channel.name)
 
-                mixed_buffer += apply_volume(chunk_array, ch["volume"])
+                mixed_buffer += apply_volume(chunk_array, channel.volume)
 
             except queue.Empty:
-                if ch["active_playback"]:
-                    ch["active_playback"] = False
-                    self.event_notifier.notify_audio_finished(name)
+                if channel.active_playback:
+                    channel.active_playback = False
+                    self.event_notifier.notify_audio_finished(channel.name)
 
         final_buffer = clip_buffer_16_bits(mixed_buffer)
         return (final_buffer.tobytes(), pyaudio.paContinue)
 
 
     def submit_audio_chunk(self, channel_name: str, raw_bytes: bytes):
-        if channel_name not in self.channels:
-            return
+        channel = self.channels.get_channel(channel_name)
+        if channel is None:
+            return 
         
         array_data = np.frombuffer(raw_bytes, dtype=np.int16)
-        self.channels[channel_name]["queue"].put(array_data)
+        channel.queue.put(array_data)
 
     def stop_channel(self, channel_name: str):
-        if channel_name not in self.channels:
+        channel = self.channels.get_channel(channel_name)
+        if channel is None:
             return
         
-        ch = cast(ChannelConfig, self.channels[channel_name])
-        q = ch["queue"]
+        q = channel.queue
         with q.mutex:
             q.queue.clear()
     
     def set_paused_channel(self, channel_name: str, is_paused: bool):
-        if channel_name not in self.channels:
+        channel = self.channels.get_channel(channel_name)
+        if channel is None:
             return
         
-        ch = cast(ChannelConfig, self.channels[channel_name])
-        ch["paused"] = is_paused
+        channel.paused = is_paused
     
     def pause_channel(self, channel_name: str):
         self.set_paused_channel(channel_name, True)
@@ -178,8 +205,11 @@ class AudioMixer:
         self.set_paused_channel(channel_name, False)
     
     def set_volume_channel(self, channel_name: str, volume: float):
-        if channel_name in self.channels:
-            self.channels[channel_name]["volume"] = max(0.0, min(volume, 1.0))
+        channel = self.channels.get_channel(channel_name)
+        if channel is None:
+            return
+        
+        channel.volume = max(0.0, min(volume, 1.0))
     
     def close(self):
         self.stream.stop_stream()
