@@ -187,6 +187,9 @@ class AudioMixer:
         if channel is None:
             return
         
+        channel.active_playback = False
+        self.event_notifier.notify_audio_finished(channel_name)
+        
         q = channel.queue
         with q.mutex:
             q.queue.clear()
