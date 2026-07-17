@@ -84,8 +84,9 @@ class AudioMixerMasterConfig:
     paused: bool
 
 class AudioMixer:
-    def __init__(self, event_notifier: AudioMixerEventNotifier):
+    def __init__(self, event_notifier: AudioMixerEventNotifier, pyaudio_instance: pyaudio.PyAudio):
         self.event_notifier = event_notifier
+        self.pyaudio_instance = pyaudio_instance
 
         self.channels: AudioMixerChannelsConfig = self._get_default_channels_config()
         self.master: AudioMixerMasterConfig = self._get_default_master_config()
@@ -128,8 +129,7 @@ class AudioMixer:
         )
 
     def _setup_pyaudio(self):
-        self.p = pyaudio.PyAudio()
-        self.stream = self.p.open(
+        self.stream = self.pyaudio_instance.open(
             format=pyaudio.paInt16,
             channels=1,
             rate=settings.SPEAKER.RATE,
@@ -223,7 +223,7 @@ class AudioMixer:
     def close(self):
         self.stream.stop_stream()
         self.stream.close()
-        self.p.terminate()
+        self.pyaudio_instance.terminate()
 
 
 def main():
