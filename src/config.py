@@ -19,6 +19,7 @@ class MicrophoneSettings(BaseModel):
 class SpeakerSettings(BaseModel):
     RATE: PositiveInt = 16_000
     CHUNK_SIZE: PositiveInt = 1_280
+    STREAM_NAME: str = "speaker"
 
 VolumeSetting = Annotated[float, Field(ge=0.0, le=1.0)]
 
