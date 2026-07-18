@@ -47,6 +47,8 @@ class AudioMixerEventNotifier:
     def notify_audio_finished(self, channel_name: str):
         self._notify({"event": "finished", "channel": channel_name})
     
+    async def close(self):
+        await self.redis_provider.close()
 
 @dataclass
 class ChannelConfig:
@@ -220,7 +222,8 @@ class AudioMixer:
         
         channel.volume = max(0.0, min(volume, 1.0))
     
-    def close(self):
+    async def close(self):
+        await self.event_notifier.close()
         self.stream.stop_stream()
         self.stream.close()
         self.pyaudio_instance.terminate()
