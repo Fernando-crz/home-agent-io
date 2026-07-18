@@ -163,14 +163,10 @@ class AudioMixer:
                     continue 
                 else:
                     channel.active_playback = True
+                    self.event_notifier.notify_audio_started(channel.name)
 
             try:
                 chunk_array = channel.queue.get_nowait() # falls into exception if queue empty.
-
-                if not channel.active_playback:
-                    channel.active_playback = True
-                    self.event_notifier.notify_audio_started(channel.name)
-
                 mixed_buffer += apply_volume(chunk_array, channel.volume)
 
             except queue.Empty:
