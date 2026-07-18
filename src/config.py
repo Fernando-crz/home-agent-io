@@ -15,6 +15,8 @@ class StreamNameSettings(BaseModel):
 class MicrophoneSettings(BaseModel):
     CAPTURE_RATE: PositiveInt = 16_000
     CHUNK_SIZE: PositiveInt = 1_280
+    CHANNELS: PositiveInt = 1
+    STREAM_NAME: str = "microphone"
 
 class SpeakerSettings(BaseModel):
     RATE: PositiveInt = 16_000
