@@ -136,7 +136,7 @@ class AudioMixer:
     def _setup_pyaudio(self):
         self.stream = self.pyaudio_instance.open(
             format=pyaudio.paInt16,
-            channels=1,
+            channels=settings.SPEAKER.CHANNELS,
             rate=settings.SPEAKER.RATE,
             output=True,
             frames_per_buffer=settings.SPEAKER.CHUNK_SIZE,

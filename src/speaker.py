@@ -5,6 +5,7 @@ from typing import Any, TypedDict, NotRequired, Dict, cast
 from dataclasses import dataclass
 
 from src.audio_mixer import AudioMixer
+from src.audio_utils import process_and_slice_file
 from src.config import settings
 
 logger = logging.getLogger(__name__)
@@ -116,10 +117,21 @@ class Speaker:
                         channel.last_id = message_id
 
                         raw_audio_bytes = payload.get(b"audio_data")
+                        audio_type = payload.get(b"audio_type", b"raw").decode("utf-8")
+                        
                         if not raw_audio_bytes:
                             continue
-
-                        await asyncio.to_thread(self.audio_mixer.submit_audio_chunk, channel.name, raw_audio_bytes)
+                        
+                        processed_audio_bytes = process_and_slice_file(
+                            raw_audio_bytes, 
+                            audio_type, 
+                            settings.SPEAKER.RATE, 
+                            settings.SPEAKER.CHANNELS, 
+                            settings.SPEAKER.SAMPLE_WIDTH,
+                            settings.SPEAKER.CHUNK_SIZE
+                        )
+                        for chunk in processed_audio_bytes:
+                            await asyncio.to_thread(self.audio_mixer.submit_audio_chunk, channel.name, chunk)
             
             except asyncio.CancelledError:
                 logger.info(f"Safely stopping ingestion for channel: {channel}")

@@ -20,6 +20,8 @@ class MicrophoneSettings(BaseModel):
 
 class SpeakerSettings(BaseModel):
     RATE: PositiveInt = 16_000
+    CHANNELS: PositiveInt = 1
+    SAMPLE_WIDTH: PositiveInt = 2
     CHUNK_SIZE: PositiveInt = 1_280
     STREAM_NAME: str = "speaker"
     CONTROLLER_STREAM_NAME: str = "speaker_controller"
