@@ -76,9 +76,12 @@ class AudioMixerChannelsConfig:
         if channel_name not in self:
             return None
 
-        if channel_name == "music": return self.music
-        if channel_name == "agent": return self.agent
-        if channel_name == "notification": return self.notification
+        if channel_name == "music": 
+            return self.music
+        if channel_name == "agent": 
+            return self.agent
+        if channel_name == "notification": 
+            return self.notification
 
 @dataclass
 class AudioMixerMasterConfig:
