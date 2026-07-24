@@ -7,7 +7,7 @@ from typing import Literal
 MIN_VAL_INT_16 = np.iinfo(np.int16).min
 MAX_VAL_INT_16 = np.iinfo(np.int16).max
 
-def apply_volume(chunk: npt.NDArray[np.int16], volume: float) -> npt.NDArray[np.int32]:
+def apply_volume(chunk: npt.NDArray[np.int16] | npt.NDArray[np.int32], volume: float) -> npt.NDArray[np.int32]:
     # Humans perceive volume in a logarithmic scale;
     # that means we must bring the volume metric to a log scale to make it sound right.
     volume = volume ** 3

@@ -170,7 +170,7 @@ class AudioMixer:
 
             try:
                 chunk_array = channel.queue.get_nowait() # falls into exception if queue empty.
-                mixed_buffer += apply_volume(chunk_array, channel.volume)
+                mixed_buffer += apply_volume(apply_volume(chunk_array, channel.volume), self.master.volume)
 
             except queue.Empty:
                 if channel.active_playback:
@@ -219,7 +219,21 @@ class AudioMixer:
         if channel is None:
             return
         
-        channel.volume = max(0.0, min(volume, 1.0))
+        channel.volume = volume
+    
+    def pause_master(self):
+        self.master.paused = True
+    
+    def resume_master(self):
+        self.master.paused = False
+
+    def stop_master(self):
+        for channel_name in ["music", "agent", "notification"]:
+            self.stop_channel(channel_name)
+
+    def set_volume_master(self, volume: float):
+        volume = max(0.0, min(volume, 1.0))
+        self.master.volume = volume
     
     async def close(self):
         await self.event_notifier.close()

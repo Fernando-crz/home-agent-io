@@ -88,13 +88,25 @@ class Speaker:
         return control_listener_command
 
     def _execute_control_listener_message(self, control_listener_command: ControlListenerCommand):
+        if control_listener_command["channel"] == "master":
+            if control_listener_command["command"] == "pause":
+                self.audio_mixer.pause_master()
+            elif control_listener_command["command"] == "resume":
+                self.audio_mixer.resume_master()
+            elif control_listener_command["command"] == "stop":
+                self.audio_mixer.stop_master()
+            elif control_listener_command["command"] == "volume" and "volume" in control_listener_command:
+                self.audio_mixer.set_volume_master(control_listener_command["volume"])
+            
+            return
+        
         if control_listener_command["command"] == "pause":
             self.audio_mixer.pause_channel(control_listener_command["channel"])
         elif control_listener_command["command"] == "resume":
             self.audio_mixer.resume_channel(control_listener_command["channel"])
         elif control_listener_command["command"] == "stop":
             self.audio_mixer.stop_channel(control_listener_command["channel"])
-        elif control_listener_command["command"] == "volume" and control_listener_command.get("volume"):
+        elif control_listener_command["command"] == "volume" and "volume" in control_listener_command:
             self.audio_mixer.set_volume_channel(control_listener_command["channel"], control_listener_command["volume"])
         
 
